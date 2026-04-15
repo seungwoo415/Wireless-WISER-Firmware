@@ -224,9 +224,9 @@ int main(void)
         0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0x00
     };
 
-    uint16_t dataout_test_buffer[2] = { 
-        0x01AA, // sipo[1]
-        0x8888, // sipo[2]
+    uint8_t dataout_test_buffer[4] = { 
+        0x01, 0xAA, // sipo[1]
+        0x88, 0x88, // sipo[2]
     };
 
 
@@ -236,7 +236,7 @@ int main(void)
 
     prepare_buffer(sramout_test_buffer_3, SRAMOUT3, sramout_buffer_3);
 
-    //prepare_dataout_buffer(dataout_test_buffer); 
+    prepare_buffer(dataout_test_buffer, 26, dataout_buffer); 
 
     pwm_init(); 
 
@@ -254,7 +254,10 @@ int main(void)
 
     //     k_msleep(5); 
     // }
+
+    // 30 s  
     k_msleep(30000);
+
     // while (1) {
     //     // --- Test 1: 2 bits (Early Termination) ---
     //     pwm_done = false;
@@ -277,13 +280,21 @@ int main(void)
     //     nrfx_pwm_simple_playback(&pwm_instance, &seq_sramout_3, 1, NRFX_PWM_FLAG_STOP);
     //     NRFX_LOG_INFO("Sent 3");
     //     while (!pwm_done) k_yield();
-    //     k_msleep(10000);
+    //     k_msleep(90000);
     // }
 
     // for ALDL testing 
     // DL 113, AL 14
     pwm_done = false;
-    nrfx_pwm_simple_playback(&pwm_instance, &seq_sramout_3, 1, NRFX_PWM_FLAG_STOP);
+    //nrfx_pwm_simple_playback(&pwm_instance, &seq_sramout_3, 1, NRFX_PWM_FLAG_STOP);
+    // DL 10, AL 5
+    //nrfx_pwm_simple_playback(&pwm_instance, &seq_sramout_2, 1, NRFX_PWM_FLAG_STOP);
+
+    // dataout 
+    while (5) {
+        nrfx_pwm_simple_playback(&pwm_instance, &seq_dataout, 1, NRFX_PWM_FLAG_STOP);
+        k_msleep(10000);
+    }
     while (!pwm_done) k_yield();
 
     LOG_INF("test done"); 

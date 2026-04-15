@@ -38,22 +38,22 @@ extern "C" {
 #endif
 
 // pin configurations 
-#define SRAMOUT_CLK_IN 27 //27 
-#define SRAMOUT_DATA_IN 26 //26
-#define DATAOUT_CLK_IN 4 //4
-#define DATAOUT_DATA_IN 5 //5
-#define AL_DATA_IN 24
-#define DL_DATA_IN 15
+#define SRAMOUT_CLK_IN 31 // 31
+#define SRAMOUT_DATA_IN 30 // 30 
+#define DATAOUT_CLK_IN NRF_GPIO_PIN_MAP(1, 11) // 1.11
+#define DATAOUT_DATA_IN NRF_GPIO_PIN_MAP(1, 13) // 1.13 
+#define AL_DATA_IN NRF_GPIO_PIN_MAP(1, 12) // 1.12
+#define DL_DATA_IN NRF_GPIO_PIN_MAP(1, 14) // 1.14
 
 #define DAC_SDA_PIN 12
 #define DAC_SCL_PIN 11
-#define SIPO_CLK_OUT 8
-#define SIPO_DATA_OUT 6
-#define CLK_1MHZ_OUT 14 
-#define CLK_BASE_OUT 13
-#define CH_RST NRF_GPIO_PIN_MAP(1, 8)
+#define SIPO_CLK_OUT NRF_GPIO_PIN_MAP(1, 15) // 1.15
+#define SIPO_DATA_OUT 29 // 29
+#define CLK_1MHZ_OUT 28 // 28
+#define CLK_BASE_OUT 2 // 2
+#define CH_RST NRF_GPIO_PIN_MAP(1, 10) // 1.10
 
-#define BLE_LED NRF_GPIO_PIN_MAP(1, 10)
+//#define BLE_LED NRF_GPIO_PIN_MAP(1, 10)
 
 // hardware instance indicies 
 #define GPIOTE_INST_IDX 0
@@ -130,6 +130,9 @@ struct __packed sramout_ble_packet {
     uint16_t SRAM_out4;
     uint16_t SRAM_out5;
     uint16_t SRAM_out6;
+    uint16_t SRAM_out7;
+    uint16_t SRAM_out8;
+    uint16_t SRAM_out9;
 }; 
 
 extern struct sramout_ble_packet ble_sramout_packet;

@@ -18,7 +18,7 @@ K_MSGQ_DEFINE(fifo_data_out, sizeof(struct dataout_ble_packet), 32, 4);
 
 /* ISR ------------------------------------------------------------------*/
 // https://docs.zephyrproject.org/latest/kernel/services/interrupts.html 
-__attribute__((section(".ramfunc")))
+//__attribute__((section(".ramfunc")))
 ISR_DIRECT_DECLARE(gpiote_fast_handler)
 {
     NRF_GPIOTE->EVENTS_IN[1] = 0;
@@ -138,7 +138,7 @@ void timer_timeout_init(void) {
         
         nrfx_timer_clear(&timer_sramout_inst);
 
-        uint32_t desired_ticks = nrfx_timer_us_to_ticks(&timer_sramout_inst, 20); // 1s
+        uint32_t desired_ticks = nrfx_timer_us_to_ticks(&timer_sramout_inst, 48); // 0.2ms
         nrfx_timer_extended_compare(&timer_sramout_inst, NRF_TIMER_CC_CHANNEL0, desired_ticks,
                                 NRF_TIMER_SHORT_COMPARE0_STOP_MASK, true);
 
@@ -159,7 +159,7 @@ void timer_timeout_init(void) {
         
         nrfx_timer_clear(&timer_dataout_inst);
 
-        desired_ticks = nrfx_timer_us_to_ticks(&timer_dataout_inst, 20); // 1s
+        desired_ticks = nrfx_timer_us_to_ticks(&timer_dataout_inst, 48); // 0.2ms
         nrfx_timer_extended_compare(&timer_dataout_inst, NRF_TIMER_CC_CHANNEL0, desired_ticks,
                                 NRF_TIMER_SHORT_COMPARE0_STOP_MASK, true);
 
@@ -275,23 +275,26 @@ void process_sramout(volatile uint32_t *buffer, int count) {
 
     //memset(&ble_sramout_packet, 0, sizeof(ble_sramout_packet));
 
-    LOG_INF("sramout: 0x%08X %08X %08X %08X \n", 
-         __RBIT(buffer[0]), __RBIT(buffer[1]), __RBIT(buffer[2]), __RBIT(buffer[3]));
-    LOG_INF("count: %u \n", count); 
+    //LOG_INF("sramout: 0x%08X %08X %08X %08X \n", 
+    //     __RBIT(buffer[0]), __RBIT(buffer[1]), __RBIT(buffer[2]), __RBIT(buffer[3]));
+    //LOG_INF("count: %u \n", count); 
 
     // --- REPLICATING FPGA LOGIC CONDITIONS ---
     // FPGA: (SRAM_out[0]==1'b1 && counter_SRAM==16'd1)
     if (count == 2 && get_sram_bit(buffer, 0)) {
         done_rd_SRAM = 1;
+        LOG_INF("first condition");
     }
     // FPGA: (SRAM_out[8]==1'b0 && counter_SRAM==16'd9)
     else if (count == 10 && !get_sram_bit(buffer, 8)) {
         done_rd_SRAM = 1;
+        LOG_INF("second condition");
     }
     // FPGA: (SRAM_out[110]==1'b0 && counter_SRAM==16'd111)
     // Note: C count 111 is the 112th bit
     else if (count == 112 && !get_sram_bit(buffer, 110)) {
         done_rd_SRAM = 1;
+        LOG_INF("third condition");
     }
 
     // buffer[0] has bits that arrived first 
@@ -301,6 +304,10 @@ void process_sramout(volatile uint32_t *buffer, int count) {
     uint32_t b3 = __RBIT(buffer[3]);
 
     memset(&ble_sramout_packet, 0, sizeof(ble_sramout_packet));
+
+    // remember to change this for the actual code 
+    done_rd_SRAM = 1; 
+    
     if (done_rd_SRAM) {
         // Slice the 128-bit buffer into the 16-bit FPGA chunks
         ble_sramout_packet.SRAM_out6 = (uint16_t)(b0 >> 16);  // bits 0-15 reversed
@@ -311,22 +318,31 @@ void process_sramout(volatile uint32_t *buffer, int count) {
         ble_sramout_packet.SRAM_out1 = (uint16_t)(b2 & 0xFFFF); // bits 80-95 reversed
         ble_sramout_packet.SRAM_out0 = (uint16_t)(b3 >> 16);
 
+        // need to delete
+        ble_sramout_packet.SRAM_out7 = (uint16_t)sramout_count;
+        ble_sramout_packet.SRAM_out8 = (uint16_t)(sramout_buffer[0] >> 16);
+        ble_sramout_packet.SRAM_out9 = (uint16_t)(sramout_buffer[0] & 0xFFFF);
+        
+        LOG_INF("SRAM Data (LSB-Packed): \n");
+        LOG_INF("sram_out9 :   0x%04X \n", ble_sramout_packet.SRAM_out9);
+        LOG_INF("sram_out8 :   0x%04X \n", ble_sramout_packet.SRAM_out8);
+        LOG_INF("sram_out7 :   0x%04X \n", ble_sramout_packet.SRAM_out7);
+
+        LOG_INF("sram_out6 :   0x%04X \n", ble_sramout_packet.SRAM_out6);
+        LOG_INF("sram_out5:  0x%04X \n", ble_sramout_packet.SRAM_out5);
+        LOG_INF("sram_out4:  0x%04X \n", ble_sramout_packet.SRAM_out4);
+        LOG_INF("sram_out3: (96-111): 0x%04X \n", ble_sramout_packet.SRAM_out3);
+        LOG_INF("sram_out2 :   0x%04X \n", ble_sramout_packet.SRAM_out2);
+        LOG_INF("sram_out1:  0x%04X \n", ble_sramout_packet.SRAM_out1);
+        LOG_INF("sram_out0:  0x%04X \n", ble_sramout_packet.SRAM_out0);
+        LOG_INF("Total Bits: %d \n", sramout_count);
+
         bt_gatt_notify(current_conn, &spect_svc.attrs[8], &ble_sramout_packet, sizeof(ble_sramout_packet));
     } 
 
     done_rd_SRAM = 0; 
     sramout_count = 0; 
     memset((void *)sramout_buffer, 0, sizeof(sramout_buffer));
-
-    LOG_INF("SRAM Data (LSB-Packed): \n");
-    LOG_INF("sram_out6 :   0x%04X \n", ble_sramout_packet.SRAM_out6);
-    LOG_INF("sram_out5:  0x%04X \n", ble_sramout_packet.SRAM_out5);
-    LOG_INF("sram_out4:  0x%04X \n", ble_sramout_packet.SRAM_out4);
-    LOG_INF("sram_out3: (96-111): 0x%04X \n", ble_sramout_packet.SRAM_out3);
-    LOG_INF("sram_out2 :   0x%04X \n", ble_sramout_packet.SRAM_out2);
-    LOG_INF("sram_out1:  0x%04X \n", ble_sramout_packet.SRAM_out1);
-    LOG_INF("sram_out0:  0x%04X \n", ble_sramout_packet.SRAM_out0);
-    LOG_INF("Total Bits: %d \n", sramout_count);
  
 } 
 
@@ -364,6 +380,8 @@ void process_dataout(uint32_t dataout, int count, uint64_t timestamp) {
         
         LOG_INF("DataOut Packet Processed: 0x%08X", new_pkt.dataout);
     } else {
+        dataout_count = 0; 
+        dataout_buffer = 0;
         // This handles cases where noise or partial packets occur
         LOG_WRN("DataOut rejected: count was %d, expected 26", count);
     }

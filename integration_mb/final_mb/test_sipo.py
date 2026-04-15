@@ -13,8 +13,7 @@ dataout_queue = {i: queue.Queue() for i in range(16)}
 input_queues = {
     "SIPO_DONE": queue.Queue(),
     "DAC_DONE":  queue.Queue(),
-    "SRAMOUT": queue.Queue(), 
-    "DLAL": queue.Queue()
+    "SRAMOUT": queue.Queue()
 } 
 
 i = 0 
@@ -42,8 +41,6 @@ def serial_listener():
                 input_queues["DAC_DONE"].put(True)
             elif line.startswith("SRAMOUT:"):
                 input_queues["SRAMOUT"].put(line)
-            elif line.startswith("DLAL_RESP:"): 
-                input_queues["DLAL"].put(line) 
 
 # Start the listener
 threading.Thread(target=serial_listener, daemon=True).start()
@@ -79,45 +76,17 @@ def SRAM_data_out():
     SRAMout = 0
     try:
         # Get the actual string from the SRAM bucket
-        raw_msg = input_queues["SRAMOUT"].get(timeout=2)
-        #print("SRAMOUT found")
+        raw_msg = input_queues["SRAMOUT"].get(timeout=5)
+        
         raw_data = raw_msg.replace("SRAMOUT:", "").split(",")
-        print(f"raw_data: {raw_data}")
         vals = [int(v, 16) for v in raw_data]
         SRAMout = (vals[6] << 96) + (vals[5] << 80) + (vals[4] << 64) + \
                       (vals[3] << 48) + (vals[2] << 32) + (vals[1] << 16) + vals[0]
-        
-        # test 
-        binary_string = f"{SRAMout:0112b}"
-        formatted_bin = "_".join(binary_string[i:i+8] for i in range(0, len(binary_string), 8))
-        print(f"SRAM [HEX]: 0x{SRAMout:028X}\n")
-        print(f"SRAM [BIN]: {formatted_bin}\n")
 
         return SRAMout
     except queue.Empty:
         print("SRAM Timeout!")
         return 0
-
-def DL_ALValues(): 
-    cmd = "DLAL_RQST\n"
-    ser.write(cmd.encode('ascii'))
-
-    try: 
-        raw_msg = input_queues["DLAL"].get(timeout=5) 
-        raw_data = raw_msg.replace("DLAL_RESP:", "").strip().split(",")
-
-        finalCount = int(raw_data[0])
-        finalAddress = int(raw_data[1])
-        # test 
-        print(f"DL:{finalCount}, AL:{finalAddress}")
-        return (finalCount, finalAddress) 
-    except queue.Empty: 
-        print("DLAL timeout") 
-        return None, None
-    except (ValueError, IndexError) as e: 
-        print(f"DLAL Data Error: Received malformed message. ({e})") 
-        return None, None 
-        
 
 def Main_data_out(i, boardAddress): 
     if i == 0:
@@ -134,38 +103,14 @@ def Main_data_out(i, boardAddress):
     return dataout, timestamp
 
 
-# if __name__ == "__main__":
-#     print("--- Starting DATAOUT Monitoring ---")
-#     print("Watching for packets from the Motherboard...")
-    
-#     i = 0
-#     board_address = 0
-#     try:
-#         while True:
-#             # Just keep the script running
-#             val, ts = Main_data_out(i, board_address)
-#             if val != 0 or ts != 0:
-#                 print(f"Board {board_address} | Data: {val} | TS: {ts}")
-#             if board_address == 0:
-#                 board_address = 1
-#             else: 
-#                 board_address = 0
-#             i+=1
-#             time.sleep(0.5)
-#     except KeyboardInterrupt:
-#         print("\nStopping Test...")
-
 if __name__ == "__main__":
-    time.sleep(1) 
+    time.sleep(5) 
     
-    print("--- START ---")
+    print("--- START ---") 
+    
+    #SIPO_data_in(0x8004, 0x1000, 0x1000, 0x1000, 0x1000, 0x1000, 0x1000, 0x8001) 
 
-    try: 
-        while True: 
-             time.sleep(2)
-             DL_ALValues()
-             #SRAM_data_out()
-            
-    except KeyboardInterrupt:
-        print("\nStopping Test...")
+    SIPO_data_in(0x0000, 0xFFFF, 0x0000, 0xFFFF, 0x0000, 0xFFFF, 0x0000, 0xFFFF) 
+    # 1101 1110 1111 0000 
 
+    print("Script Complete.")

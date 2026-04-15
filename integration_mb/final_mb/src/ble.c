@@ -138,10 +138,10 @@ static uint8_t sramout_notify_cb(struct bt_conn *conn,
 
         char buf[128];
         int len = snprintf(buf, sizeof(buf), 
-                    "SRAMOUT:%04X,%04X,%04X,%04X,%04X,%04X,%04X\n",
+                    "SRAMOUT:%04X,%04X,%04X,%04X,%04X,%04X,%04X,%04X,%04X,%04X\n",
                     ble_sramout_packet.SRAM_out0, ble_sramout_packet.SRAM_out1, ble_sramout_packet.SRAM_out2,
                     ble_sramout_packet.SRAM_out3, ble_sramout_packet.SRAM_out4, ble_sramout_packet.SRAM_out5,
-                    ble_sramout_packet.SRAM_out6);
+                    ble_sramout_packet.SRAM_out6, ble_sramout_packet.SRAM_out7, ble_sramout_packet.SRAM_out8, ble_sramout_packet.SRAM_out9);
 
         int sent = 0;
         while (sent < len) {
@@ -153,7 +153,13 @@ static uint8_t sramout_notify_cb(struct bt_conn *conn,
         LOG_INF("Out0: 0x%04X", ble_sramout_packet.SRAM_out0); // Should be 0xAABB
         LOG_INF("Out1: 0x%04X", ble_sramout_packet.SRAM_out1); // Should be 0xCCDD
         LOG_INF("Out2: 0x%04X", ble_sramout_packet.SRAM_out2); // Should be 0x1234
-        LOG_INF("Out6: 0x%04X", ble_sramout_packet.SRAM_out6); // Should be 0x5678
+        LOG_INF("Out3: 0x%04X", ble_sramout_packet.SRAM_out3);
+        LOG_INF("Out4: 0x%04X", ble_sramout_packet.SRAM_out4);
+        LOG_INF("Out5: 0x%04X", ble_sramout_packet.SRAM_out5);
+        LOG_INF("Out6: 0x%04X", ble_sramout_packet.SRAM_out6);
+        LOG_INF("Out7: 0x%04X", ble_sramout_packet.SRAM_out7); // Should be 0x5678
+        LOG_INF("Out8: 0x%04X", ble_sramout_packet.SRAM_out8);
+        LOG_INF("Out9: 0x%04X", ble_sramout_packet.SRAM_out9);
         LOG_INF("------------------------------------");
     } else {
         LOG_WRN("Unexpected SRAMOUT length: %u", length);

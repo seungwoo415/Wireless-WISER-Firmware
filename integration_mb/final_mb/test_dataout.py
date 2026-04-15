@@ -48,7 +48,6 @@ def serial_listener():
 # Start the listener
 threading.Thread(target=serial_listener, daemon=True).start()
 
-
 def SIPO_data_in(sipo_data0, sipo_data1, sipo_data2, sipo_data3, sipo_data4, sipo_data5, sipo_data6, sipo_data7): 
 
     cmd = f"SIPO:{sipo_data7:04X},{sipo_data6:04X},{sipo_data5:04X},{sipo_data4:04X},{sipo_data3:04X},{sipo_data2:04X},{sipo_data1:04X},{sipo_data0:04X}\n"
@@ -123,6 +122,7 @@ def Main_data_out(i, boardAddress):
     if i == 0:
         cmd = "DATAOUT_RST\n" # data_rd_reset
         ser.write(cmd.encode('ascii')) 
+        time.sleep(5)
 
     dataout = 0
     timestamp = 0
@@ -134,38 +134,27 @@ def Main_data_out(i, boardAddress):
     return dataout, timestamp
 
 
-# if __name__ == "__main__":
-#     print("--- Starting DATAOUT Monitoring ---")
-#     print("Watching for packets from the Motherboard...")
-    
-#     i = 0
-#     board_address = 0
-#     try:
-#         while True:
-#             # Just keep the script running
-#             val, ts = Main_data_out(i, board_address)
-#             if val != 0 or ts != 0:
-#                 print(f"Board {board_address} | Data: {val} | TS: {ts}")
-#             if board_address == 0:
-#                 board_address = 1
-#             else: 
-#                 board_address = 0
-#             i+=1
-#             time.sleep(0.5)
-#     except KeyboardInterrupt:
-#         print("\nStopping Test...")
-
 if __name__ == "__main__":
-    time.sleep(1) 
+    print("--- Starting DATAOUT Monitoring ---")
+    print("Watching for packets from the Motherboard...")
+    time.sleep(1)
     
-    print("--- START ---")
-
-    try: 
-        while True: 
-             time.sleep(2)
-             DL_ALValues()
-             #SRAM_data_out()
-            
+    i = 0
+    board_address = 0
+    try:
+        while True:
+            # Just keep the script running
+            val, ts = Main_data_out(i, board_address)
+            if val != 0 or ts != 0:
+                print(f"Board {board_address} | Data: {val} | TS: {ts}")
+            # if board_address == 0:
+            #     board_address = 1
+            # else: 
+            #     board_address = 0
+            i+=1
+            time.sleep(0.2)
     except KeyboardInterrupt:
         print("\nStopping Test...")
+
+
 

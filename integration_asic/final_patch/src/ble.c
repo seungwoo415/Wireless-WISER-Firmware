@@ -56,7 +56,7 @@ void on_connected(struct bt_conn *conn, uint8_t err)
     LOG_INF("Connected! Motherboard is now talking to us.\n");
 
     // erase for actual patch 
-    nrf_gpio_pin_set(BLE_LED);
+    //nrf_gpio_pin_set(BLE_LED);
     
     // Save the connection reference
     current_conn = bt_conn_ref(conn);
@@ -66,7 +66,7 @@ void on_disconnected(struct bt_conn *conn, uint8_t reason)
 {
     printk("Disconnected (reason %u)\n", reason);
     // erase for actual patch 
-    nrf_gpio_pin_clear(BLE_LED); 
+    //nrf_gpio_pin_clear(BLE_LED); 
     
     if (current_conn) {
         bt_conn_unref(current_conn);

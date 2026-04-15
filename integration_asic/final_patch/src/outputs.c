@@ -27,7 +27,7 @@ void pwm_sipo_init(void) {
         // sipo config 
         nrfx_pwm_config_t pwm_sipo_config = NRFX_PWM_DEFAULT_CONFIG(SIPO_CLK_OUT, NRF_PWM_PIN_NOT_CONNECTED, SIPO_DATA_OUT, NRF_PWM_PIN_NOT_CONNECTED);
         pwm_sipo_config.base_clock = NRF_PWM_CLK_16MHz; 
-        pwm_sipo_config.top_value = 32; 
+        pwm_sipo_config.top_value = 32; // 250KHz
         pwm_sipo_config.load_mode = NRF_PWM_LOAD_GROUPED;
 
         // enable sipo pwm interupt 
@@ -50,7 +50,7 @@ void pwm_clk_1mhz_init(void) {
         // sipo config 
         nrfx_pwm_config_t pwm_clk_1mhz_config = NRFX_PWM_DEFAULT_CONFIG(CLK_1MHZ_OUT, NRF_PWM_PIN_NOT_CONNECTED, NRF_PWM_PIN_NOT_CONNECTED, NRF_PWM_PIN_NOT_CONNECTED);
         pwm_clk_1mhz_config.base_clock = NRF_PWM_CLK_16MHz; 
-        pwm_clk_1mhz_config.top_value = 16; 
+        pwm_clk_1mhz_config.top_value = 16; // 500KHz 
         pwm_clk_1mhz_config.load_mode = NRF_PWM_LOAD_COMMON;
 
         status = nrfx_pwm_init(&pwm_clk_1mhz_instance, &pwm_clk_1mhz_config, NULL, NULL);

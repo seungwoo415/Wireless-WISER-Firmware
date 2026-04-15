@@ -90,6 +90,9 @@ void initialize_patch(void) {
         nrf_gpio_cfg_input(DATAOUT_DATA_IN, NRF_GPIO_PIN_NOPULL); 
         nrf_gpio_cfg_input(DATAOUT_CLK_IN, NRF_GPIO_PIN_NOPULL);
 
+        nrf_gpio_cfg_input(AL_DATA_IN, NRF_GPIO_PIN_NOPULL); 
+        nrf_gpio_cfg_input(DL_DATA_IN, NRF_GPIO_PIN_NOPULL);
+
         // inputs 
         gpiote_inputs_init(); 
         timer_timeout_init(); 
@@ -114,10 +117,10 @@ void initialize_patch(void) {
 
         // initialize bluetooth 
         int err;
-
+            
         // erase for actual patch 
-        nrf_gpio_cfg_output(BLE_LED);
-        nrf_gpio_pin_clear(BLE_LED); 
+        //nrf_gpio_cfg_output(BLE_LED);
+        //nrf_gpio_pin_clear(BLE_LED); 
         reset_dl_counter(); 
         reset_al_counter(); 
 

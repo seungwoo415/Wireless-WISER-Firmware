@@ -61,6 +61,9 @@ struct __packed sramout_ble_packet {
     uint16_t SRAM_out4;
     uint16_t SRAM_out5;
     uint16_t SRAM_out6;
+    uint16_t SRAM_out7;
+    uint16_t SRAM_out8;
+    uint16_t SRAM_out9;
 };
 
 struct __packed dataout_ble_packet {

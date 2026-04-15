@@ -1,12 +1,14 @@
 import serial, time, queue, threading
 
-ser = serial.Serial('/dev/cu.usbmodem1101', 115200, timeout=0)
+ser = serial.Serial('/dev/cu.usbmodem101', 115200, timeout=0)
 
 # Critical Mac/Zephyr handshake
 ser.dtr = True
 ser.rts = True
 
 time.sleep(1.0)
+
+CRC = 1
 
 dataout_queue = {i: queue.Queue() for i in range(16)}
 
@@ -45,6 +47,13 @@ def serial_listener():
 # Start the listener
 threading.Thread(target=serial_listener, daemon=True).start()
 
+def bitIdxLong(num, k, p): # input is any number (255, 0xE6, 0b1100), converted to bits and then sliced - result = num[k:p]
+    binary = format(num, '128b')
+    binary = binary.replace(' ', '0')
+    end = len(binary) - p
+    start = len(binary) - k - 1
+    binrep = binary[start:end]
+    return int(binrep, 2)
 
 def SIPO_data_in(sipo_data0, sipo_data1, sipo_data2, sipo_data3, sipo_data4, sipo_data5, sipo_data6, sipo_data7): 
 
@@ -53,7 +62,7 @@ def SIPO_data_in(sipo_data0, sipo_data1, sipo_data2, sipo_data3, sipo_data4, sip
 
     try:
         input_queues["SIPO_DONE"].get(timeout=5)
-        print(f"SIPO done{i} received!")
+        print(f"SIPO done received!")
     except queue.Empty:
         print("SIPO timeout!") 
     
@@ -82,11 +91,43 @@ def SRAM_data_out():
         vals = [int(v, 16) for v in raw_data]
         SRAMout = (vals[6] << 96) + (vals[5] << 80) + (vals[4] << 64) + \
                       (vals[3] << 48) + (vals[2] << 32) + (vals[1] << 16) + vals[0]
-
+        print(vals[7], raw_data[8], raw_data[9])
         return SRAMout
     except queue.Empty:
         print("SRAM Timeout!")
         return 0
+
+def writeToSRAM(rowaddr,data,timing):
+    global CRC 
+    CRC = 0 if CRC == 1 else 1 # toggle CRC
+    sramWriteWireIn = (1 << 124) + (rowaddr << 115) + (data << 5) + (timing << 1) + CRC << 2 # what is that awful number? 2^124 since write iop is 10
+    sram0 = bitIdxLong(sramWriteWireIn, 15, 0)
+    sram1 = bitIdxLong(sramWriteWireIn, 31, 16)
+    sram2 = bitIdxLong(sramWriteWireIn, 47, 32)
+    sram3 = bitIdxLong(sramWriteWireIn, 63, 48)
+    sram4 = bitIdxLong(sramWriteWireIn, 79, 64)
+    sram5 = bitIdxLong(sramWriteWireIn, 95, 80)
+    sram6 = bitIdxLong(sramWriteWireIn, 111, 96)
+    sram7 = bitIdxLong(sramWriteWireIn, 127, 112)
+    SIPO_data_in(sram0, sram1, sram2, sram3, sram4, sram5, sram6, sram7)
+    return
+
+def readFromSRAM(rowaddr,data,timing): # why do we need to pass data here?
+    global CRC
+    CRC = 0 if CRC == 1 else 1 # toggle CRC
+    sramWriteWireIn = (1 << 123) + (rowaddr << 115) + (data << 5) + (timing << 1) + CRC << 2 # what is that awful number? 2^123 since write iop is 01
+    sram0 = bitIdxLong(sramWriteWireIn, 15, 0)
+    sram1 = bitIdxLong(sramWriteWireIn, 31, 16)
+    sram2 = bitIdxLong(sramWriteWireIn, 47, 32)
+    sram3 = bitIdxLong(sramWriteWireIn, 63, 48)
+    sram4 = bitIdxLong(sramWriteWireIn, 79, 64)
+    sram5 = bitIdxLong(sramWriteWireIn, 95, 80)
+    sram6 = bitIdxLong(sramWriteWireIn, 111, 96)
+    sram7 = bitIdxLong(sramWriteWireIn, 127, 112)
+    SIPO_data_in(sram0, sram1, sram2, sram3, sram4, sram5, sram6, sram7) 
+    sram_rddata = SRAM_data_out()
+    return bitIdxLong(sram_rddata, 109, 0)
+
 
 def Main_data_out(i, boardAddress): 
     if i == 0:
@@ -102,40 +143,35 @@ def Main_data_out(i, boardAddress):
  
     return dataout, timestamp
 
-
-# if __name__ == "__main__":
-#     print("--- Starting DATAOUT Monitoring ---")
-#     print("Watching for packets from the Motherboard...")
-    
-#     i = 0
-#     board_address = 0
-#     try:
-#         while True:
-#             # Just keep the script running
-#             val, ts = Main_data_out(i, board_address)
-#             if val != 0 or ts != 0:
-#                 print(f"Board {board_address} | Data: {val} | TS: {ts}")
-#             if board_address == 0:
-#                 board_address = 1
-#             else: 
-#                 board_address = 0
-#             i+=1
-#             time.sleep(0.5)
-#     except KeyboardInterrupt:
-#         print("\nStopping Test...")
-
 if __name__ == "__main__":
-    time.sleep(1) 
+    time.sleep(5) 
     
     print("--- START ---")
 
-    try: 
-        while True: 
-            SIPO_data_in(0x8000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x8001)
+    #cmd = f"CH_RST\n"
+    #ser.write(cmd.encode('ascii'))
+
+    #time.sleep(5)
+
+    #ser.write(cmd.encode('ascii'))
+
+    #time.sleep(5)
     
-            #DAC_data_in(0x1234, 0x5678, 0xA000) 
-            
-            i+=1 
-    except KeyboardInterrupt:
-        print("\nStopping Test...")
+    # write to SRAM 
+    TEST_ROW = 12
+    TEST_DATA = 0xDEADBEEF
+    TEST_TIMING = 2
+
+    writeToSRAM(TEST_ROW, TEST_DATA, TEST_TIMING) 
+
+    time.sleep(1)
+
+    received_data = readFromSRAM(TEST_ROW, 0, TEST_TIMING)
+
+    print("--- DATA RECEIVED ---")
+    if received_data == TEST_DATA:
+        print("Recieved data: ", {hex(received_data)})
+        print("SUCCESS: Data Matched!")
+    else:
+        print(f"FAILURE: Expected {hex(TEST_DATA)}, but got {hex(received_data)}")
 
