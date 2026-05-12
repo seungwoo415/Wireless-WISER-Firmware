@@ -25,6 +25,7 @@ extern struct bt_uuid_128 al_uuid;
 extern struct bt_uuid_128 dl_uuid;
 extern struct bt_uuid_128 dataout_uuid;
 extern struct bt_uuid_128 syscmd_uuid;
+extern struct bt_uuid_128 count_status_uuid;
 
 /* --- Handle Variables --- */
 extern uint16_t sipo_data_handle; 
@@ -36,7 +37,9 @@ extern uint16_t sramout_notify_handle;
 extern uint16_t al_data_handle; 
 extern uint16_t dl_data_handle; 
 extern uint16_t dataout_data_handle; 
+extern uint16_t dataout_notify_handle;
 extern uint16_t syscmd_data_handle;
+extern uint16_t count_status_data_handle;
 
 /* --- Function Prototypes --- */
 
@@ -54,6 +57,8 @@ void dl_read(void);
  * @brief Triggers a GATT Read for Dataout.
  */
 void dataout_read(void);
+
+void count_status_read(void);
 
 /**
  * @brief Packs 126-bit SIPO configuration and writes it to the Patch.

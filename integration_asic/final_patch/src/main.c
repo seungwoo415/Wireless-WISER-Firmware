@@ -1,7 +1,8 @@
 #include "final_patch.h" 
 #include "inputs.h"
 #include "outputs.h"
-#include "rtc.h" 
+#include "rtc.h"
+#include "ble.h" // added this need to check if this is right
 
 LOG_MODULE_REGISTER(final_patch, LOG_LEVEL_INF);
 
@@ -31,6 +32,11 @@ volatile uint8_t done_wr_sipo = 0;
 volatile uint8_t done_wr_dac = 0;
 
 volatile uint8_t done_rd_SRAM = 0; 
+
+volatile uint32_t current_write_offset; 
+volatile bool is_dumping = false; 
+volatile uint32_t dump_offset; 
+volatile uint32_t gamma_counts; 
 
 struct k_work sramout_work;
 struct k_work dataout_work;
@@ -70,7 +76,7 @@ void sramout_work_handler(struct k_work *work)
 
 void dataout_work_handler(struct k_work *work)
 {   
-    uint64_t ts = get_current_timestamp(); 
+    uint32_t ts = (uint32_t)get_current_timestamp(); 
     uint32_t val = dataout_buffer;
     int count = dataout_count;
 
@@ -124,10 +130,19 @@ void initialize_patch(void) {
         reset_dl_counter(); 
         reset_al_counter(); 
 
+        if (!device_is_ready(FLASH_DEVICE)) {
+                LOG_INF("Flash device is not ready\n"); 
+        }
+
+        LOG_INF("Erasing flash for experiment...");
+        err = flash_erase(FLASH_DEVICE, FLASH_BASE_OFFSET, FLASH_TOTAL_SIZE);
+        if (err) {
+                LOG_ERR("Flash erase failed: %d", err);
+        }
+
         err = bt_enable(NULL); 
         if (err) {
             LOG_ERR("Bluetooth init failed \n"); 
-            return; 
         } 
         LOG_INF("BT success");
 
@@ -146,9 +161,21 @@ int main(void)
         // initialize patch 
         initialize_patch(); 
 
+        k_msleep(5000);  
         // patch is idle 
         while (1) {
-                k_sleep(K_MSEC(1000));
+                if (is_dumping && current_conn) {
+                    int status = dataout_dump(current_conn);
+                    if (status == -ENOMEM) {
+                        // BLE buffers are full, wait 1 tick for the radio to clear them
+                        k_msleep(50); 
+                    } else if (status == 0) {
+                        // packet sent successfully and don't sleep
+                        k_msleep(10); 
+                    }
+                } else {
+                    k_sleep(K_MSEC(1000));
+                }
                 // test erase 
                 
         }

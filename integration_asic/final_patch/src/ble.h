@@ -26,12 +26,17 @@ extern struct bt_uuid_128 al_uuid;
 extern struct bt_uuid_128 dl_uuid;
 extern struct bt_uuid_128 dataout_uuid;
 extern struct bt_uuid_128 syscmd_uuid;
+extern struct bt_uuid_128 count_status_uuid;
 
 /* --- Function Prototypes --- */
 /**
  * @brief Begins advertisement.
  */
 void patch_ad_start(void);
+
+int dataout_dump(struct bt_conn *conn);
+
+void reset_mem(void); 
  
 #ifdef __cplusplus
 }

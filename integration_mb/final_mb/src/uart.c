@@ -42,6 +42,16 @@ static void handle_dac(char *buf) {
                  write_dac(dac2, dac1, dac0); 
         }
         
+} 
+
+void reset_mb(void) {
+    sys_reboot(SYS_REBOOT_COLD); 
+}
+
+void reset_system(void) {
+    write_sys_cmd(10); 
+     
+    
 }
 
 /* UART Process Function ------------------------------------------------------------------*/
@@ -54,7 +64,8 @@ void process_command(char *buf, const struct device *dev) {
                         break; 
                 case 'C':  
                         //if (strcmp(buf, "CLK_TOGG") == 0) clk_toggle(); // don't think this is needed
-                        if (strcmp(buf, "CH_RST") == 0) write_sys_cmd(6); // needed
+                        if (strcmp(buf, "COUNTSTATUS_RQST") == 0) count_status_read(); 
+                        else if (strcmp(buf, "CH_RST") == 0) write_sys_cmd(6); // needed
                         break; 
                 case 'D': 
                         if (strncmp(buf, "DAC:", 4) == 0) handle_dac(buf); // make sure to call reset_dac() first
@@ -64,10 +75,14 @@ void process_command(char *buf, const struct device *dev) {
                         else if (strcmp(buf, "DATA_RD_RST") == 0) write_sys_cmd(5); // think more
                         break; 
                 case 'R': 
-                        if (strcmp(buf, "RST_GLOBAL") == 0) write_sys_cmd(7);
+                        if (strcmp(buf, "RST_GLOBAL") == 0) write_sys_cmd(7); 
+                        else if (strcmp(buf, "RST_MB") == 0) reset_mb(); 
+                        else if (strcmp(buf, "RST_SYS") == 0) reset_system();  
                         break;
                 case 'S': 
                         if (strncmp(buf, "SIPO:", 5) == 0) handle_sipo(buf); // make sure to call reset_sipo() and reset_sramout() first 
+                        else if (strncmp(buf, "STOPG:", 6) == 0) write_sys_cmd(8); 
+                        else if (strncmp(buf, "STARTG:", 7) == 0) write_sys_cmd(9);
                         // else if (strcmp(buf, "SIPO_RST") == 0) reset_sipo(); 
                         //else if (strcmp(buf, "SRAM_RD_RST") == 0) reset_sramout(); 
                         break;  
@@ -103,7 +118,7 @@ static void uart_cb(const struct device *dev, void *user_data)
 
 /* Initialize UART Function ------------------------------------------------------------------*/
 void initialize_uart(void) {
-    /* Enable USB serial */
+    /* Enable USB serial */ 
         int ret = usb_enable(NULL); 
         if (ret) {
                 LOG_ERR("CDC ACM not ready\n");
@@ -117,8 +132,8 @@ void initialize_uart(void) {
 
         int dtr = 0;  
         while (!dtr) {
-                uart_line_ctrl_get(uart, UART_LINE_CTRL_DTR, &dtr); 
-                k_msleep(10);
+               uart_line_ctrl_get(uart, UART_LINE_CTRL_DTR, &dtr); 
+               k_msleep(10);
         }
 
         // set callback function
@@ -126,4 +141,5 @@ void initialize_uart(void) {
 
         // enable uart rx interrupt 
         uart_irq_rx_enable(uart);
+
 }

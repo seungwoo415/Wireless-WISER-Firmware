@@ -19,6 +19,7 @@
 #include <zephyr/device.h>
 #include <zephyr/drivers/uart.h>
 #include <zephyr/usb/usb_device.h>
+#include <zephyr/sys/reboot.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -43,6 +44,40 @@ extern uint16_t dlal_reset;
 extern uint16_t data_rd_reset;
 extern uint16_t sipo_reset; 
 
+// for status count 
+extern uint32_t status_count; 
+
+extern uint16_t status_data_0; 
+extern uint16_t status_data_1; 
+
+extern uint16_t status_data_2; 
+extern uint16_t status_data_3; 
+
+extern uint16_t status_data_4; 
+extern uint16_t status_data_5;
+
+extern uint16_t status_data_6; 
+extern uint16_t status_data_7; 
+
+extern uint16_t status_data_8; 
+extern uint16_t status_data_9;
+
+extern uint16_t status_data_10; 
+extern uint16_t status_data_11;
+
+extern uint16_t status_data_12; 
+extern uint16_t status_data_13;
+
+extern uint16_t status_data_14; 
+extern uint16_t status_data_15;
+
+extern uint16_t status_data_16; 
+extern uint16_t status_data_17;
+
+extern uint16_t status_data_18; 
+extern uint16_t status_data_19;
+
+
 extern int board_address;
 
 /* UART  ------------------------------------------------------------------*/
@@ -63,13 +98,25 @@ struct __packed sramout_ble_packet {
     uint16_t SRAM_out6;
     uint16_t SRAM_out7;
     uint16_t SRAM_out8;
-    uint16_t SRAM_out9;
+    uint16_t SRAM_out9;  
 };
 
+// struct __packed dataout_ble_packet {
+//     uint32_t dataout; 
+//     uint64_t timestamp; 
+// }; // need to change 
+
 struct __packed dataout_ble_packet {
-    uint32_t dataout; 
-    uint64_t timestamp; 
+    uint64_t dataout   : 26; // Your ASIC pulse width (26 bits)
+    uint64_t reserved  : 6;  // Padding to reach exactly 64 bits (8 bytes) 
+    uint64_t timestamp : 32; // Lower 32 bits of RTC (30.5us precision)
 }; 
+
+struct __packed count_status_packet {
+    uint32_t counts; 
+    uint32_t curr_time; 
+    struct dataout_ble_packet dt[1];
+};
 
 /* K_WORK  ------------------------------------------------------------------*/
 struct command_work_t {

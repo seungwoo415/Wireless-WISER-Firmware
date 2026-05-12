@@ -51,7 +51,9 @@ void update_dl_counter(void);
 void process_sramout(volatile uint32_t *buffer, int count); 
 
 /** @brief Processes dataout data. */
-void process_dataout(uint32_t dataout, int count, uint64_t timestamp); 
+void process_dataout(uint32_t dataout, int count, uint32_t timestamp); 
+
+void get_count_status(void); 
 
 /** @brief Returns sramout bit. */
 bool get_sram_bit(volatile uint32_t *buffer, int bit_idx); 

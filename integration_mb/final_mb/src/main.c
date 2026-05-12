@@ -22,7 +22,7 @@ struct bt_le_scan_param scan_param = {
 const struct device *uart = DEVICE_DT_GET(DT_NODELABEL(cdc_acm));
 
 // process_command work handler 
-struct command_work_t process_command_work;
+struct command_work_t process_command_work;  
 
 void process_command_work_handler(struct k_work *work_item)
 {
@@ -57,13 +57,27 @@ void initialize_mb(void) {
 }
 
 int main(void)
-{
+{       
+        LOG_INF("START"); 
+
         initialize_mb(); 
 
+        LOG_INF("initalize_mb...");
         initialize_uart(); 
-
+        
+        //LOG_INF("Waiting for DATAOUT handle...");
         k_msleep(5000); 
 
+        // while (dataout_notify_handle == 0) {
+        //     k_msleep(100); 
+        // }
+        // k_msleep(500);
+
+        // if (current_conn && count_status_data_handle != 0) {
+
+        //             k_msleep(1000); 
+        // }
+            
         // if (current_conn && al_data_handle != 0) {
         //         LOG_INF("Starting AL Read...");
         //         al_read(); 
@@ -71,21 +85,18 @@ int main(void)
         //         LOG_ERR("AL Read skipped: Not connected or handle not found");
         // }
 
-        // k_msleep(1000);
-
-        // if (current_conn && dl_data_handle != 0) {
-        //         LOG_INF("Starting DL Read...");
-        //         dl_read(); 
-        // } 
+        //k_msleep(1000);
+ 
 
         // k_msleep(200); 
 
         // write_sipo(0xF000, 0x0000, 0x0000, 0x0000, 
         //                 0x0000, 0x0000, 0x000F, 0x0000);
         
-
-        while(1) {
-                k_sleep(K_FOREVER); 
+        //LOG_INF("while loop start"); 
+        //count_status_read();
+        while(1) { 
+                k_sleep(K_FOREVER);
         }
         
         return 0; 

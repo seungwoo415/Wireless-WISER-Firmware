@@ -17,6 +17,10 @@
 #include <zephyr/bluetooth/bluetooth.h>
 #include <zephyr/bluetooth/gatt.h>
 #include <zephyr/bluetooth/uuid.h>
+#include <zephyr/storage/flash_map.h>
+#include <zephyr/fs/nvs.h>
+#include <zephyr/drivers/flash.h>
+#include <zephyr/sys/reboot.h>
 
 #include <nrfx_pwm.h>
 #include <nrfx_timer.h>
@@ -88,7 +92,23 @@ extern "C" {
 #define DATAOUT_PIN_MASK (1 << DATAOUT_DATA_IN)
 
 // data length 
-#define SIPO_DATA_LEN 126
+#define SIPO_DATA_LEN 126 
+
+/* Get the node identifier for the partition label in your overlay */
+#define FLASH_PARTITION_NODE DT_NODELABEL(external_storage_partition)
+
+/* Use the DT_FLASH_AREA macros to get the device and offset */
+#define FLASH_DEVICE DEVICE_DT_GET(DT_MTD_FROM_FIXED_PARTITION(FLASH_PARTITION_NODE))
+#define FLASH_PARTITION_OFFSET DT_REG_ADDR(FLASH_PARTITION_NODE)
+#define FLASH_BASE_OFFSET DT_REG_ADDR(FLASH_PARTITION_NODE)
+
+// id for nvs (each data == id) 
+#define FLASH_TOTAL_SIZE  (512 * 4096)
+
+extern volatile uint32_t current_write_offset;
+extern volatile bool is_dumping; 
+extern volatile uint32_t dump_offset; 
+extern volatile uint32_t gamma_counts; 
 
 // hardware instances
 extern const nrfx_timer_t timer_sramout_inst; 
@@ -138,9 +158,18 @@ struct __packed sramout_ble_packet {
 extern struct sramout_ble_packet ble_sramout_packet;
 
 struct __packed dataout_ble_packet {
-    uint32_t dataout; 
-    uint64_t timestamp; 
+    uint64_t dataout   : 26; // Your ASIC pulse width (26 bits)
+    uint64_t reserved  : 6;  // Padding to reach exactly 64 bits (8 bytes) 
+    uint64_t timestamp : 32; // Lower 32 bits of RTC (30.5us precision)
 }; 
+
+struct __packed count_status_packet {
+    uint32_t counts; 
+    uint32_t curr_time; 
+    struct dataout_ble_packet dt[1];
+}; 
+
+extern struct count_status_packet status_packet;
 
 extern struct bt_conn *current_conn;
 

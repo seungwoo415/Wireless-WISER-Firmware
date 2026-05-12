@@ -18,9 +18,11 @@
  */
 void start_timestamp_rtc(void); 
 
+void stop_timestamp_rtc(void); 
+
 /**
  * @brief Returns timestamp for dataout.
  */
-uint64_t get_current_timestamp(void);
+uint32_t get_current_timestamp(void);
 
 #endif /* FINAL_PATCH_H */

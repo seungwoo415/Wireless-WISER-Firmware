@@ -37,10 +37,14 @@ void start_timestamp_rtc(void) {
 
         // start the clock
         nrf_rtc_task_trigger(NRF_RTC2, NRF_RTC_TASK_START);
+} 
+
+void stop_timestamp_rtc(void) {
+    nrf_rtc_task_trigger(NRF_RTC2, NRF_RTC_TASK_STOP);
 }
 
 /* Get Current Timestamp ------------------------------------------------------------------*/
-uint64_t get_current_timestamp(void) {
+uint32_t get_current_timestamp(void) {
     uint32_t before, low, after;
 
     // Keep reading until we are sure an overflow didn't happen DURING the read
@@ -50,5 +54,7 @@ uint64_t get_current_timestamp(void) {
         after  = rtc_overflow_count;
     } while (before != after);
 
-    return ((uint64_t)before << 24) | low;
+    uint64_t full_val = ((uint64_t)before << 24) | low; 
+    
+    return (uint32_t) full_val; 
 }

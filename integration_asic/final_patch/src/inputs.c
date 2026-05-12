@@ -9,12 +9,13 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "final_patch.h"
+#include "rtc.h" 
 
 LOG_MODULE_DECLARE(final_patch, LOG_LEVEL_INF);
 
 // dataout fifo 
 //K_MSGQ_DEFINE(fifo_data_out, sizeof(uint32_t), 32, 4);
-K_MSGQ_DEFINE(fifo_data_out, sizeof(struct dataout_ble_packet), 32, 4);
+//K_MSGQ_DEFINE(fifo_data_out, sizeof(struct dataout_ble_packet), 32, 4);
 
 /* ISR ------------------------------------------------------------------*/
 // https://docs.zephyrproject.org/latest/kernel/services/interrupts.html 
@@ -250,7 +251,6 @@ void reset_dataout(void) {
         dataout_count = 0; 
         dataout_buffer = 0; 
         rtc_overflow_count = 0; 
-        start_timestamp_rtc(); 
 } 
 
 /* AL/DL Update Functions ------------------------------------------------------------------*/
@@ -351,7 +351,7 @@ int ble_notification_dataout(struct dataout_ble_packet *pkt, uint16_t len) {
         return bt_gatt_notify(current_conn, &spect_svc.attrs[15], pkt, len); 
 }
 
-void process_dataout(uint32_t dataout, int count, uint64_t timestamp) {
+void process_dataout(uint32_t dataout, int count, uint32_t timestamp) {
     // FPGA: counter_data0 == 16'd25 (which is the 26th bit)
 
     if (count == 26) {
@@ -363,26 +363,58 @@ void process_dataout(uint32_t dataout, int count, uint64_t timestamp) {
         // Note: dataout_buffer[25:0] matches your uint32_t bits 0 to 25.
         new_pkt.dataout = __RBIT(dataout) >> 6; // Mask only 26 bits
 
-        // If you want to send this to your BLE FIFO:
-        k_msgq_put(&fifo_data_out, &new_pkt, K_NO_WAIT);
-        dataout_count = 0; 
-        dataout_buffer = 0;
+        // padding 
+        new_pkt.reserved = 0; 
 
-        uint32_t num_fifo = k_msgq_num_used_get(&fifo_data_out);
-        if (num_fifo >= 5) {
-                struct dataout_ble_packet send_pkt;
-                for (int i = 0; i < 5; i++) {
-                        k_msgq_get(&fifo_data_out, &send_pkt, K_NO_WAIT); 
-                        int err = ble_notification_dataout(&send_pkt, sizeof(send_pkt)); 
-                        if (err) LOG_ERR("dataout sending failed"); 
+        gamma_counts++; 
+
+        // memory is full 
+        if (current_write_offset + sizeof(new_pkt) >= FLASH_TOTAL_SIZE) {
+                LOG_WRN("Flash full! Wrapping back to start of partition.");
+        } else {
+                int err = flash_write(FLASH_DEVICE, FLASH_BASE_OFFSET + current_write_offset, &new_pkt, sizeof(new_pkt));
+
+                if (err < 0) {
+                        LOG_ERR("flash write failed");
+                } else {
+                        current_write_offset += sizeof(new_pkt);
+                        
+                        // make sure to erase this for the final code 
+                        LOG_INF("dataout count: 0x%08llX | Time: %u", 
+                        (long long)new_pkt.dataout, new_pkt.timestamp);
                 }
         }
+
+        dataout_count = 0; 
+        dataout_buffer = 0;
         
-        LOG_INF("DataOut Packet Processed: 0x%08X", new_pkt.dataout);
+        //LOG_INF("DataOut Packet Processed: 0x%08X", new_pkt.dataout);
     } else {
         dataout_count = 0; 
         dataout_buffer = 0;
         // This handles cases where noise or partial packets occur
         LOG_WRN("DataOut rejected: count was %d, expected 26", count);
     }
+}
+
+void get_count_status(void) {
+
+        memset(status_packet.dt, 0, sizeof(status_packet.dt));
+        status_packet.counts = gamma_counts;
+        status_packet.curr_time = get_current_timestamp(); 
+
+        if (status_packet.counts > 0) {
+                int dataout_to_read = (status_packet.counts > 1) ? 1 : status_packet.counts;
+
+                for (int i = 0; i < dataout_to_read; i++) {
+                        int err = flash_read(FLASH_DEVICE, 
+                                                FLASH_BASE_OFFSET + (i * sizeof(struct dataout_ble_packet)), 
+                                                &status_packet.dt[i], 
+                                                sizeof(struct dataout_ble_packet));            
+                        if (err) {
+                                LOG_ERR("Flash read failed at index %d: %d", i, err);  
+                                break; 
+                        }
+                } 
+        }
 }

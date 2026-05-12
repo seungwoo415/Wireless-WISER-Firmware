@@ -11,6 +11,7 @@
 #include "final_patch.h" 
 #include "inputs.h"
 #include "outputs.h" 
+#include "rtc.h" 
 
 // logging 
 LOG_MODULE_REGISTER(spect, LOG_LEVEL_INF);
@@ -29,6 +30,7 @@ static struct bt_uuid_128 al_uuid  = BT_UUID_INIT_128(BT_UUID_128_ENCODE(0x7231d
 static struct bt_uuid_128 dl_uuid  = BT_UUID_INIT_128(BT_UUID_128_ENCODE(0x7231db51, 0x67ed, 0x4bf7, 0xbe9f, 0x2b84348147ee)); 
 static struct bt_uuid_128 dataout_uuid  = BT_UUID_INIT_128(BT_UUID_128_ENCODE(0x7231db52, 0x67ed, 0x4bf7, 0xbe9f, 0x2b84348147ee));
 static struct bt_uuid_128 syscmd_uuid  = BT_UUID_INIT_128(BT_UUID_128_ENCODE(0x7231db53, 0x67ed, 0x4bf7, 0xbe9f, 0x2b84348147ee));
+static struct bt_uuid_128 count_status_uuid  = BT_UUID_INIT_128(BT_UUID_128_ENCODE(0x7231db54, 0x67ed, 0x4bf7, 0xbe9f, 0x2b84348147ee));
 
 const struct bt_data ad[] = {
     /* Set advertising flags: General discoverable, BR/EDR not supported */
@@ -44,6 +46,7 @@ const struct bt_data ad[] = {
 /* Global Variables ------------------------------------------------------------------*/
 struct bt_conn *current_conn;
 struct sramout_ble_packet ble_sramout_packet;
+struct count_status_packet status_packet; 
 
 /* BLE Connection Functions ------------------------------------------------------------------*/
 void on_connected(struct bt_conn *conn, uint8_t err)
@@ -196,38 +199,127 @@ static ssize_t dl_read_cb(struct bt_conn *conn, const struct bt_gatt_attr *attr,
 static ssize_t dataout_read_cb(struct bt_conn *conn, const struct bt_gatt_attr *attr,
                             void *buf, uint16_t len, uint16_t offset)
 {
+
     
-    // uint32_t val;
 
-    // // Attempt to pop ONE word from the FIFO
-    // if (k_msgq_get(&fifo_data_out, &val, K_NO_WAIT) == 0) {
-    //     // Prepare the 4-byte buffer
-    //     uint8_t temp_buf[4];
-    //     temp_buf[0] = (val >> 24) & 0xFF;
-    //     temp_buf[1] = (val >> 16) & 0xFF;
-    //     temp_buf[2] = (val >> 8) & 0xFF;
-    //     temp_buf[3] = val & 0xFF;
-
-    //     LOG_INF("Dataout read request: Popping 0x%08X", val);
-    //     return bt_gatt_attr_read(conn, attr, buf, len, offset, temp_buf, sizeof(temp_buf));
+    // struct dataout_ble_packet pkt; 
+    // if (k_msgq_get(&fifo_data_out, &pkt, K_NO_WAIT) == 0){
+    //     LOG_INF("Dataout read request: Popping 0x%08X", pkt.dataout);
+    //     return bt_gatt_attr_read(conn, attr, buf, len, offset, &pkt, sizeof(pkt));
     // } else {
     //     // FIFO is empty, return 0 or an error code
     //     LOG_WRN("Dataout read request: FIFO Empty");
     //     return 0; 
     // }
 
-    struct dataout_ble_packet pkt; 
-    if (k_msgq_get(&fifo_data_out, &pkt, K_NO_WAIT) == 0){
-        LOG_INF("Dataout read request: Popping 0x%08X", pkt.dataout);
-        return bt_gatt_attr_read(conn, attr, buf, len, offset, &pkt, sizeof(pkt));
-    } else {
-        // FIFO is empty, return 0 or an error code
-        LOG_WRN("Dataout read request: FIFO Empty");
+    return 0; 
+} 
+
+// BLE ADDED
+static ssize_t count_status_cb(struct bt_conn *conn, const struct bt_gatt_attr *attr,
+                            void *buf, uint16_t len, uint16_t offset)
+{   
+    // erase 
+    // struct dataout_ble_packet new_pkt;
+    // new_pkt.dataout = 12; 
+    // new_pkt.timestamp = 1; 
+    // LOG_INF("Erasing flash"); 
+    // flash_erase(FLASH_DEVICE, FLASH_BASE_OFFSET, FLASH_TOTAL_SIZE);
+    // flash_write(FLASH_DEVICE, FLASH_BASE_OFFSET, &new_pkt, sizeof(new_pkt));
+    // gamma_counts++; 
+
+    // current_write_offset = 0; 
+    // current_write_offset += sizeof(new_pkt);
+    // new_pkt.dataout = 2; 
+    // new_pkt.timestamp = 2;
+    // flash_write(FLASH_DEVICE, FLASH_BASE_OFFSET + current_write_offset, &new_pkt, sizeof(new_pkt)); 
+    // gamma_counts++; 
+    get_count_status(); 
+    
+    return bt_gatt_attr_read(conn, attr, buf, len, offset, &status_packet, sizeof(status_packet));
+} 
+
+// ADDED
+int dataout_dump(struct bt_conn *conn) {
+    LOG_INF("dump start"); 
+    if (!is_dumping || !conn) {
         return 0; 
     }
+    
+    struct dataout_ble_packet pkt; 
+    struct dataout_ble_packet end_pkt = {
+        .timestamp = 0xFFFFFFFF,    // All 32 bits set
+        .dataout   = 0x3FFFFFF,     // All 26 bits set (max for 26-bit field)
+        .reserved  = 0x3F           // All 6 bits set (max for 6-bit field)
+    }; 
+
+    int ble_err = 0; 
+    int packets_sent_this_round = 0; 
+    const int MAX_SENT_PER_CALL = 20; 
+    
+    // no gamma counts 
+    if (gamma_counts == 0) {
+        // send the end of data
+        ble_err = bt_gatt_notify(conn, &spect_svc.attrs[15], &end_pkt, sizeof(end_pkt)); 
+        if (ble_err == 0) {
+            is_dumping = false; 
+        }
+        return ble_err; 
+    }
+
+    while (dump_offset < current_write_offset) {
+        if (packets_sent_this_round >= MAX_SENT_PER_CALL) {
+            return 0; // Return to main loop, will resume next pass
+        }
+
+        int flash_err = flash_read(FLASH_DEVICE, FLASH_BASE_OFFSET + dump_offset, 
+                                   &pkt, sizeof(pkt)); 
+
+        if (flash_err != 0) {
+            LOG_ERR("Flash read error during dump at %u", dump_offset); 
+            is_dumping = false; 
+            return flash_err; 
+        }
+
+        ble_err = bt_gatt_notify(conn, &spect_svc.attrs[15], &pkt, sizeof(pkt)); // double check
+        if (ble_err == 0) {
+            dump_offset += sizeof(pkt); // Success: increment pointer
+            packets_sent_this_round++; 
+        } else if (ble_err == -ENOMEM) {
+            // BLE stack is full for this millisecond. 
+            // Exit the function and try again on the next main loop pass.
+            return ble_err; 
+        } else {
+            LOG_ERR("BLE Notification failed: %d", ble_err);
+            is_dumping = false;
+            return ble_err;
+        }
+
+        if (dump_offset >= current_write_offset) { 
+            ble_err = bt_gatt_notify(conn, &spect_svc.attrs[15], &end_pkt, sizeof(end_pkt)); 
+            if(ble_err == -ENOMEM) {
+                return ble_err; 
+            }
+            is_dumping = false; 
+            LOG_INF("--- BULK TRANSFER COMPLETE --- Total Bytes: %u", dump_offset);
+        } 
+    }
+
+    return 0; 
 }
 
-// sys command callback 
+// ADDED 
+void reset_mem(void) {
+    LOG_INF("Erasing flash for experiment...");
+    int err = flash_erase(FLASH_DEVICE, FLASH_BASE_OFFSET, FLASH_TOTAL_SIZE);
+    if (err) {
+            LOG_ERR("Flash erase failed: %d", err);
+    }
+
+    current_write_offset = 0;
+}
+
+// sys command callback  BLE ADDED 
 static ssize_t syscmd_write_cb(struct bt_conn *conn, const struct bt_gatt_attr *attr,
                              const void *buf, uint16_t len, uint16_t offset, uint8_t flags) 
 {
@@ -268,8 +360,73 @@ static ssize_t syscmd_write_cb(struct bt_conn *conn, const struct bt_gatt_attr *
             break;
         
         case 0x07: // reset global
+            // reset memory
+            chip_reset(); 
+            reset_mem(); 
+            reset_dataout();
+            chip_reset();
+            reset_dataout(); 
+            gamma_counts = 0; 
+            rtc_overflow_count = 0; 
+            // reset rtc_timer need to add 
             LOG_INF("reset global \n"); 
+            break; 
+        
+        case 0x08: // stop gamma counts 
+            // stop timer + call dataout_dum[ ]
+            dump_offset = 0; 
+            is_dumping = true; 
+            stop_timestamp_rtc(); 
+            LOG_INF("stop gamma counts \n");
             break;
+
+        case 0x09: // start gamma counts  
+            // stop timer + call dataout_dump  
+            start_timestamp_rtc();
+            LOG_INF("start gamma counts \n");
+            struct dataout_ble_packet start_signal = {
+                .timestamp = 0xFFFFFFFF,
+                .dataout = 0x1, // Signal for START
+                .reserved = 0
+            };
+            bt_gatt_notify(conn, &spect_svc.attrs[15], &start_signal, sizeof(start_signal));
+
+            // reset_mem(); 
+            // reset_dataout();
+            // gamma_counts = 0; 
+
+            // struct dataout_ble_packet new_pkt;
+            // int err; 
+            // for (int i = 1; i < 11; i++) {
+            //     new_pkt.dataout = i; 
+            //     new_pkt.timestamp = i + 1; 
+            //     err = flash_write(FLASH_DEVICE, FLASH_BASE_OFFSET + current_write_offset, &new_pkt, sizeof(new_pkt));
+            //     if (err < 0) {
+            //         LOG_ERR("flash write failed");
+            //     } else {
+            //         current_write_offset += sizeof(new_pkt); 
+            //         gamma_counts++; 
+            //     }
+            // }
+            //dump_offset = 0;
+            //is_dumping = true; 
+            LOG_INF("Ready to dump");
+
+            break;
+        
+        case 0x0A: // start gamma counts  
+        // stop timer + call dataout_dump  
+            LOG_INF("reset patch \n");
+            static struct sramout_ble_packet reset_pkt;
+        
+            // Fill the whole struct with Fs
+            memset(&reset_pkt, 0xFF, sizeof(reset_pkt));
+            
+            // Send the "Signal" to the Motherboard
+            bt_gatt_notify(NULL, &spect_svc.attrs[8], &reset_pkt, sizeof(reset_pkt));
+            k_msleep(100);
+            sys_reboot(SYS_REBOOT_COLD);
+            break; 
 
         default:
             LOG_INF("Unknown Command: 0x%02X\n", command);
@@ -321,7 +478,11 @@ BT_GATT_SERVICE_DEFINE(spect_svc,
         BT_GATT_CHARACTERISTIC(&syscmd_uuid.uuid,
                     BT_GATT_CHRC_WRITE,    
                     BT_GATT_PERM_WRITE,    
-                    NULL, syscmd_write_cb, NULL)
+                    NULL, syscmd_write_cb, NULL), 
+        BT_GATT_CHARACTERISTIC(&count_status_uuid.uuid,
+                    BT_GATT_CHRC_READ,    // Motherboard can read
+                    BT_GATT_PERM_READ,    // Requires read permission
+                    count_status_cb, NULL, NULL)
 );
 
 

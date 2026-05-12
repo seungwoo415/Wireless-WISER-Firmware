@@ -24,6 +24,7 @@ static struct bt_uuid_128 al_uuid  = BT_UUID_INIT_128(BT_UUID_128_ENCODE(0x7231d
 static struct bt_uuid_128 dl_uuid  = BT_UUID_INIT_128(BT_UUID_128_ENCODE(0x7231db51, 0x67ed, 0x4bf7, 0xbe9f, 0x2b84348147ee)); 
 static struct bt_uuid_128 dataout_uuid  = BT_UUID_INIT_128(BT_UUID_128_ENCODE(0x7231db52, 0x67ed, 0x4bf7, 0xbe9f, 0x2b84348147ee));
 static struct bt_uuid_128 syscmd_uuid  = BT_UUID_INIT_128(BT_UUID_128_ENCODE(0x7231db53, 0x67ed, 0x4bf7, 0xbe9f, 0x2b84348147ee));
+static struct bt_uuid_128 count_status_uuid  = BT_UUID_INIT_128(BT_UUID_128_ENCODE(0x7231db54, 0x67ed, 0x4bf7, 0xbe9f, 0x2b84348147ee));
 
 /* Global Variables ------------------------------------------------------------------*/
 uint16_t data_deq_0; 
@@ -44,6 +45,7 @@ uint16_t sipo_reset = 0;
 static struct bt_gatt_read_params al_read_params;
 static struct bt_gatt_read_params dl_read_params;
 static struct bt_gatt_read_params dataout_read_params;
+static struct bt_gatt_read_params count_status_read_params;
 
 static struct bt_gatt_discover_params discover_params;
 static struct bt_gatt_discover_params ccc_params;
@@ -63,10 +65,12 @@ uint16_t dataout_notify_handle;
 uint16_t al_data_handle; 
 uint16_t dl_data_handle;  
 uint16_t syscmd_data_handle;
+uint16_t count_status_data_handle;
 
 struct bt_conn *current_conn;
 
 static bool found_target = false;
+static const uint16_t ALL_FS_REF[10] = {0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF};
 
 /* BLE Read/Write/Notify Functions ------------------------------------------------------------------*/
 static uint8_t sipo_notify_cb(struct bt_conn *conn, struct bt_gatt_subscribe_params *params,
@@ -135,6 +139,20 @@ static uint8_t sramout_notify_cb(struct bt_conn *conn,
 
     if (length == sizeof(struct sramout_ble_packet)) {
         memcpy(&ble_sramout_packet, data, sizeof(ble_sramout_packet));
+        
+        // patch reset is done 
+        if (memcmp(data, ALL_FS_REF, sizeof(ble_sramout_packet)) == 0) {
+            char patch_rst[] = "PATCH_RST_DONE\n";
+            int len = strlen(patch_rst); 
+            int sent = 0;
+            while (sent < len) {
+                int ret = uart_fifo_fill(uart, (uint8_t *)patch_rst + sent, len - sent);
+                if (ret > 0) {
+                    sent += ret;
+                }
+            }
+            return BT_GATT_ITER_CONTINUE;
+        }
 
         char buf[128];
         int len = snprintf(buf, sizeof(buf), 
@@ -173,12 +191,20 @@ static uint8_t dataout_notify_cb(struct bt_conn *conn,
                                  const void *data, uint16_t length)
 {
     if (!data) {
-        LOG_INF("DATAOUT Unsubscribed");
-        params->value_handle = 0U;
+        //LOG_INF("DATAOUT Unsubscribed");
+        //params->value_handle = 0U;
         return BT_GATT_ITER_STOP;
     }
 
     LOG_INF("Received %u bytes of DATAOUT data", length);
+
+    // int i = 1; 
+    // if (i) {
+    //     struct dataout_ble_packet pkt; 
+    //     memcpy(&pkt, data, sizeof(pkt));
+    //     LOG_INF("DATAOUT: 0x%07X, TS: %07X", pkt.dataout, pkt.timestamp);
+    //     return BT_GATT_ITER_CONTINUE;
+    // }
 
     if (length == sizeof(struct dataout_ble_packet)) {
         struct dataout_ble_packet pkt; 
@@ -186,8 +212,23 @@ static uint8_t dataout_notify_cb(struct bt_conn *conn,
 
         // I need to process dataout --> need to change for more than one patch
         char tx_buf[64];
-        int len = snprintf(tx_buf, sizeof(tx_buf), "DATAOUT:%d,%u,%llu\n", 
-                           0, pkt.dataout, pkt.timestamp);
+        int len; 
+        if (pkt.timestamp != 0xFFFFFFFF) { 
+            uint32_t raw_data = (uint32_t)pkt.dataout;
+            uint32_t raw_time = (uint32_t)pkt.timestamp;    
+            len = snprintf(tx_buf, sizeof(tx_buf), "DATAOUT:%d,%u,%u\n", 
+                           0, raw_data, raw_time);
+        } else {
+            // Now we know timestamp IS 0xFFFFFFFF, check the 64-bit value to see if it's DONE
+            if (*(uint64_t *)data == 0xFFFFFFFFFFFFFFFF) {
+                strcpy(tx_buf, "DATAOUT_DONE\n");
+                len = strlen(tx_buf);
+            } else {
+                // It's not the full 64-bit Fs, so it must be the START signal
+                strcpy(tx_buf, "COUNTSTART\n");
+                len = strlen(tx_buf);
+            }
+        }
 
         int sent = 0;
         while (sent < len) {
@@ -198,7 +239,7 @@ static uint8_t dataout_notify_cb(struct bt_conn *conn,
         }
         
         LOG_INF("--- TEST DATA RECEIVED FROM PATCH ---");
-        LOG_INF("DATAOUT: 0x%07X, TS: %llu", pkt.dataout, pkt.timestamp);
+        LOG_INF("DATAOUT: 0x%07X, TS: %08X", pkt.dataout, pkt.timestamp);
         LOG_INF("------------------------------------");
     } else {
         LOG_WRN("Unexpected DATAOUT length: %u", length);
@@ -285,6 +326,55 @@ static uint8_t dataout_read_response(struct bt_conn *conn, uint8_t err,
     return BT_GATT_ITER_STOP;
 }
 
+static uint8_t count_status_read_response(struct bt_conn *conn, uint8_t err,
+                                        struct bt_gatt_read_params *params,
+                                        const void *data, uint16_t length)
+{   
+    if (err) {
+        LOG_ERR("Count status Read failed: %u \n", err);
+        return BT_GATT_ITER_STOP;
+    }
+
+    if (!data) {
+        LOG_WRN("No count status data \n"); 
+        return BT_GATT_ITER_STOP;
+    }
+
+    if (length == sizeof(struct count_status_packet)) {
+        struct count_status_packet status_pkt;  
+        memcpy(&status_pkt, data, sizeof(status_pkt));
+        uint32_t counts = status_pkt.counts; 
+        uint32_t curr_time = status_pkt.curr_time; 
+        
+        for (int i = 0; i < 1; i++) {          
+            uint32_t current_dataout = (uint32_t)status_pkt.dt[i].dataout;
+            uint32_t current_ts = (uint32_t)status_pkt.dt[i].timestamp;
+
+            // I need to process dataout --> need to change for more than one patch
+            char tx_buf[64];
+            int len = snprintf(tx_buf, sizeof(tx_buf), "COUNTSTATUS:%d,%u,%u,%u,%u\n", // need to change this in GUI
+                            0, counts, curr_time, current_dataout, current_ts);
+
+            int sent = 0;
+            while (sent < len) {
+                int ret = uart_fifo_fill(uart, (uint8_t *)tx_buf + sent, len - sent);
+                if (ret > 0) {
+                    sent += ret;
+                }
+            }
+            LOG_INF("--- TEST DATA RECEIVED FROM PATCH ---");
+            LOG_INF("DATAOUT: 0x%07X, TS: %lu", current_dataout, current_ts);
+            LOG_INF("Counts: 0x%07X", counts);
+            LOG_INF("------------------------------------");
+        }
+
+    } else {
+        LOG_WRN("Unexpected COUNTSTATUS length: %u", length);
+    }
+
+    return BT_GATT_ITER_STOP;
+}
+
 void al_read(void) {
     al_read_params.func = al_read_response;
     al_read_params.handle_count = 1;
@@ -312,6 +402,15 @@ void dataout_read(void) {
     dataout_read_params.single.offset = 0;
 
     bt_gatt_read(current_conn, &dataout_read_params);
+}
+
+void count_status_read(void) {
+    count_status_read_params.func = count_status_read_response;
+    count_status_read_params.handle_count = 1;
+    count_status_read_params.single.handle = count_status_data_handle; 
+    count_status_read_params.single.offset = 0;
+
+    bt_gatt_read(current_conn, &count_status_read_params);
 }
 
 
@@ -384,7 +483,8 @@ void write_sys_cmd(uint8_t command)
     } else {
         LOG_WRN("Cannot send SysCmd: No connection or handle");
     }
-}
+} 
+
 
 
 /* BLE Connection Functions ------------------------------------------------------------------*/
@@ -623,6 +723,10 @@ static uint8_t discover_func(struct bt_conn *conn,
     else if (bt_uuid_cmp(chrc->uuid, &syscmd_uuid.uuid) == 0) {
         syscmd_data_handle = bt_gatt_attr_value_handle(attr);
         LOG_INF("Found SYSCMD Handle: 0x%04X", syscmd_data_handle);
+    } 
+    else if (bt_uuid_cmp(chrc->uuid, &count_status_uuid.uuid) == 0) {
+        count_status_data_handle = bt_gatt_attr_value_handle(attr);
+        LOG_INF("Found COUNTSTATUS Handle: 0x%04X", count_status_data_handle);
     }
 
     return BT_GATT_ITER_CONTINUE; 
@@ -668,6 +772,7 @@ static void on_disconnected(struct bt_conn *conn, uint8_t reason)
     dl_data_handle = 0;
     dataout_data_handle = 0; 
     syscmd_data_handle = 0;
+    count_status_data_handle = 0; 
 
     // Start scanning again to find the Patch
     bt_le_scan_start(&scan_param, device_found);
