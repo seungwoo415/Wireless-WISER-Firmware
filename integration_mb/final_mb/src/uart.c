@@ -15,7 +15,7 @@ LOG_MODULE_DECLARE(final_mb, LOG_LEVEL_INF);
 
 /* Variables  ------------------------------------------------------------------*/
 static uint8_t rx_buffer[128]; 
-int board_address; 
+int board_address = 1; 
 
 /* UART Handle Functions ------------------------------------------------------------------*/
 static void handle_sipo(char *buf) {
@@ -27,7 +27,7 @@ static void handle_sipo(char *buf) {
         // sramout_reset(); make patch reset when the sipo data arrives
         // sipo_reset(); make patch reset when the sipo data arrives  
         if (len == 8) {
-                write_sipo(sipo7, sipo6, sipo5, sipo4, sipo3, sipo2, sipo1, sipo0); 
+                write_sipo(sipo7, sipo6, sipo5, sipo4, sipo3, sipo2, sipo1, sipo0, board_address); 
         }
         
 }
@@ -39,19 +39,39 @@ static void handle_dac(char *buf) {
         done_wr_dac = 0; 
         // dac_reset(); make patch reset when the dac data arrives
         if (len == 3) {
-                 write_dac(dac2, dac1, dac0); 
+                 write_dac(dac2, dac1, dac0, board_address); 
         }
         
 } 
+
+static void handle_patch_num(char *buf) {
+        int len = sscanf(buf + 10, "%d", &patch_num);
+        LOG_INF("number of patches: %d", patch_num); 
+}
+
+void start_counts(void) {
+    for (int i = 0; i< patch_num; i++) {
+        write_sys_cmd(9, i);
+        k_msleep(10); 
+    }
+}
+
+void stop_counts(void) {
+    for (int i = 0; i< patch_num; i++) {
+        write_sys_cmd(8, i);
+        k_msleep(10); 
+    }
+}
 
 void reset_mb(void) {
     sys_reboot(SYS_REBOOT_COLD); 
 }
 
 void reset_system(void) {
-    write_sys_cmd(10); 
-     
-    
+    for (int i = 0; i < patch_num; i++) {
+        write_sys_cmd(10, i);
+        k_msleep(10);
+    }   
 }
 
 /* UART Process Function ------------------------------------------------------------------*/
@@ -64,25 +84,28 @@ void process_command(char *buf, const struct device *dev) {
                         break; 
                 case 'C':  
                         //if (strcmp(buf, "CLK_TOGG") == 0) clk_toggle(); // don't think this is needed
-                        if (strcmp(buf, "COUNTSTATUS_RQST") == 0) count_status_read(); 
-                        else if (strcmp(buf, "CH_RST") == 0) write_sys_cmd(6); // needed
+                        if (strcmp(buf, "COUNTSTATUS_RQST") == 0) count_status_read(board_address); 
+                        else if (strcmp(buf, "CH_RST") == 0) write_sys_cmd(6, board_address); // needed
                         break; 
                 case 'D': 
                         if (strncmp(buf, "DAC:", 4) == 0) handle_dac(buf); // make sure to call reset_dac() first
                         // else if (strcmp(buf, "DAC_RST") == 0) reset_dac();
-                        else if (strcmp(buf, "DLAL_RST") == 0) write_sys_cmd(4); 
-                        else if (strcmp(buf, "DLAL_RQST") == 0) dl_read(); 
-                        else if (strcmp(buf, "DATA_RD_RST") == 0) write_sys_cmd(5); // think more
+                        else if (strcmp(buf, "DLAL_RST") == 0) write_sys_cmd(4, board_address); 
+                        else if (strcmp(buf, "DLAL_RQST") == 0) dl_read(board_address); 
+                        else if (strcmp(buf, "DATA_RD_RST") == 0) write_sys_cmd(5, board_address); // think more
+                        break;
+                case 'P': 
+                        if (strncmp(buf, "PATCH_NUM:", 10) == 0) handle_patch_num(buf); 
                         break; 
                 case 'R': 
-                        if (strcmp(buf, "RST_GLOBAL") == 0) write_sys_cmd(7); 
+                        if (strcmp(buf, "RST_GLOBAL") == 0) write_sys_cmd(7, board_address); 
                         else if (strcmp(buf, "RST_MB") == 0) reset_mb(); 
                         else if (strcmp(buf, "RST_SYS") == 0) reset_system();  
                         break;
                 case 'S': 
                         if (strncmp(buf, "SIPO:", 5) == 0) handle_sipo(buf); // make sure to call reset_sipo() and reset_sramout() first 
-                        else if (strncmp(buf, "STOPG:", 6) == 0) write_sys_cmd(8); 
-                        else if (strncmp(buf, "STARTG:", 7) == 0) write_sys_cmd(9);
+                        else if (strncmp(buf, "STOPG:", 6) == 0) stop_counts(); 
+                        else if (strncmp(buf, "STARTG:", 7) == 0) start_counts();
                         // else if (strcmp(buf, "SIPO_RST") == 0) reset_sipo(); 
                         //else if (strcmp(buf, "SRAM_RD_RST") == 0) reset_sramout(); 
                         break;  

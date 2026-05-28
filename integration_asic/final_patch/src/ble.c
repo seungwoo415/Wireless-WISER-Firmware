@@ -39,8 +39,11 @@ const struct bt_data ad[] = {
     /* Advertise the 128-bit Service UUID so the Motherboard can filter for it */
     BT_DATA_BYTES(BT_DATA_UUID128_ALL, 
         0xee, 0x47, 0x81, 0x34, 0x84, 0x2b, 0x9f, 0xbe, 
-        0xf7, 0x4b, 0xed, 0x67, 0x4c, 0xdb, 0x31, 0x72),
-    
+        0xf7, 0x4b, 0xed, 0x67, 0x4c, 0xdb, 0x31, 0x72), 
+};
+
+const struct bt_data sd[] = {
+    BT_DATA(BT_DATA_NAME_COMPLETE, CONFIG_BT_DEVICE_NAME, sizeof(CONFIG_BT_DEVICE_NAME) - 1), 
 };
 
 /* Global Variables ------------------------------------------------------------------*/
@@ -438,7 +441,8 @@ static ssize_t syscmd_write_cb(struct bt_conn *conn, const struct bt_gatt_attr *
 }
 
 void patch_ad_start(void) {
-    int err = bt_le_adv_start(BT_LE_ADV_CONN, ad, ARRAY_SIZE(ad), NULL, 0);
+    LOG_INF("Device Name: %s", CONFIG_BT_DEVICE_NAME);
+    int err = bt_le_adv_start(BT_LE_ADV_CONN, ad, ARRAY_SIZE(ad), sd, ARRAY_SIZE(sd));
     if (err) {
         LOG_ERR("Adv start failed (err %d)", err);
     }

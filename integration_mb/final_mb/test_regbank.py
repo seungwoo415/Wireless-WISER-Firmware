@@ -177,7 +177,7 @@ if __name__ == "__main__":
     time.sleep(4)
 
     # C. Define Inputs Here (Change these values to configure)
-    input_clkSRAM  = 1  # Range: 0,1,2,3     0 is too fast, 1 only works with RTT on, 2 and 3 work 
+    input_clkSRAM  = 2  # Range: 0,1,2,3     0 is too fast, 1 only works with RTT on, 2 and 3 work 
     input_clkPISO  = 3  # Range: 0,1,2,3
     input_clkaddr  = 0   # Range: 0,1,2,3
     input_clkcnt   = 1   # Range: 0,1,2,3,8

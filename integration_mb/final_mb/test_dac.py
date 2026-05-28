@@ -155,7 +155,7 @@ if __name__ == "__main__":
     # user inputs 
     vdd_vals = [(0, 1200), (1, 600), (2, 1200), (3, 1200), (4, 2200)] 
     afe_vals = [(0, 500), (1, 600), (2, 600), (3, 400), (4, 500), (5, 0), (6, 0), (7, 300)]
-    afe_en = True 
+    afe_en = False
     
     for wdac, ival in vdd_vals: 
         inputval_dac = ival

@@ -28,53 +28,70 @@ extern struct bt_uuid_128 syscmd_uuid;
 extern struct bt_uuid_128 count_status_uuid;
 
 /* --- Handle Variables --- */
-extern uint16_t sipo_data_handle; 
-extern uint16_t sipo_notify_handle;
-extern uint16_t dac_data_handle; 
-extern uint16_t dac_notify_handle; 
-extern uint16_t sramout_data_handle;
-extern uint16_t sramout_notify_handle;  
-extern uint16_t al_data_handle; 
-extern uint16_t dl_data_handle; 
-extern uint16_t dataout_data_handle; 
-extern uint16_t dataout_notify_handle;
-extern uint16_t syscmd_data_handle;
-extern uint16_t count_status_data_handle;
+struct patch_handles {
+    uint16_t sipo_data;
+    uint16_t sipo_notify;
+    uint16_t dac_data;
+    uint16_t dac_notify;
+    uint16_t sramout_data;
+    uint16_t sramout_notify;
+    uint16_t al;
+    uint16_t dl;
+    uint16_t dataout_data;
+    uint16_t dataout_notify;
+    uint16_t syscmd;
+    uint16_t count_status;
+};
+
+extern struct patch_handles patch_handle[MAX_PATCHES];
+
+// extern uint16_t sipo_data_handle; 
+// extern uint16_t sipo_notify_handle;
+// extern uint16_t dac_data_handle; 
+// extern uint16_t dac_notify_handle; 
+// extern uint16_t sramout_data_handle;
+// extern uint16_t sramout_notify_handle;  
+// extern uint16_t al_data_handle; 
+// extern uint16_t dl_data_handle; 
+// extern uint16_t dataout_data_handle; 
+// extern uint16_t dataout_notify_handle;
+// extern uint16_t syscmd_data_handle;
+// extern uint16_t count_status_data_handle;
 
 /* --- Function Prototypes --- */
 
 /**
  * @brief Triggers a GATT Read for AL counter.
  */
-void al_read(void);
+void al_read(int slot);
 
 /**
  * @brief Triggers a GATT Read for the DL counter.
  */
-void dl_read(void);
+void dl_read(int slot);
 
 /**
  * @brief Triggers a GATT Read for Dataout.
  */
-void dataout_read(void);
+void dataout_read(int slot);
 
-void count_status_read(void);
+void count_status_read(int slot);
 
 /**
  * @brief Packs 126-bit SIPO configuration and writes it to the Patch.
  */
 void write_sipo(uint16_t s7, uint16_t s6, uint16_t s5, uint16_t s4, 
-                uint16_t s3, uint16_t s2, uint16_t s1, uint16_t s0); 
+                uint16_t s3, uint16_t s2, uint16_t s1, uint16_t s0, int slot); 
 
 /**
  * @brief Packs 36-bit DAC I2C data and writes it to the Patch.
  */
-void write_dac(uint16_t d2, uint16_t d1, uint16_t d0); 
+void write_dac(uint16_t d2, uint16_t d1, uint16_t d0, int slot); 
 
 /**
  * @brief Writes system command to the patch.
  */
-void write_sys_cmd(uint8_t command); 
+void write_sys_cmd(uint8_t command, int slot); 
 
 /**
  * @brief Creates connection when device is found.

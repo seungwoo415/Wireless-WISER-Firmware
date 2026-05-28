@@ -26,7 +26,7 @@ extern "C" {
 #endif
 
 /* Number of Patches ------------------------------------------------------------------*/
-#define NUM_PATCHES 1
+#define MAX_PATCHES 16
 
 /* Global Data Buffers ------------------------------------------------------------------*/
 extern uint16_t data_deq_0; 
@@ -45,46 +45,49 @@ extern uint16_t data_rd_reset;
 extern uint16_t sipo_reset; 
 
 // for status count 
-extern uint32_t status_count; 
+// extern uint32_t status_count; 
 
-extern uint16_t status_data_0; 
-extern uint16_t status_data_1; 
+// extern uint16_t status_data_0; 
+// extern uint16_t status_data_1; 
 
-extern uint16_t status_data_2; 
-extern uint16_t status_data_3; 
+// extern uint16_t status_data_2; 
+// extern uint16_t status_data_3; 
 
-extern uint16_t status_data_4; 
-extern uint16_t status_data_5;
+// extern uint16_t status_data_4; 
+// extern uint16_t status_data_5;
 
-extern uint16_t status_data_6; 
-extern uint16_t status_data_7; 
+// extern uint16_t status_data_6; 
+// extern uint16_t status_data_7; 
 
-extern uint16_t status_data_8; 
-extern uint16_t status_data_9;
+// extern uint16_t status_data_8; 
+// extern uint16_t status_data_9;
 
-extern uint16_t status_data_10; 
-extern uint16_t status_data_11;
+// extern uint16_t status_data_10; 
+// extern uint16_t status_data_11;
 
-extern uint16_t status_data_12; 
-extern uint16_t status_data_13;
+// extern uint16_t status_data_12; 
+// extern uint16_t status_data_13;
 
-extern uint16_t status_data_14; 
-extern uint16_t status_data_15;
+// extern uint16_t status_data_14; 
+// extern uint16_t status_data_15;
 
-extern uint16_t status_data_16; 
-extern uint16_t status_data_17;
+// extern uint16_t status_data_16; 
+// extern uint16_t status_data_17;
 
-extern uint16_t status_data_18; 
-extern uint16_t status_data_19;
+// extern uint16_t status_data_18; 
+// extern uint16_t status_data_19;
 
 
 extern int board_address;
+
+extern int connected_patches; 
+extern int patch_num; 
 
 /* UART  ------------------------------------------------------------------*/
 extern const struct device *uart; 
 
 /* BLE Variables ------------------------------------------------------------------*/
-extern struct bt_conn *current_conn;
+extern struct bt_conn *current_conn[MAX_PATCHES];
 extern const struct bt_data ad[2]; 
 extern struct bt_le_scan_param scan_param;
 

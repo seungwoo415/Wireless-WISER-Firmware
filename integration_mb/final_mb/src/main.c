@@ -12,7 +12,7 @@ const struct bt_data ad[] = {
 };
 
 struct bt_le_scan_param scan_param = {
-    .type     = BT_LE_SCAN_TYPE_PASSIVE,
+    .type     = BT_LE_SCAN_TYPE_ACTIVE,
     .options  = BT_LE_SCAN_OPT_NONE,
     .interval = BT_GAP_MS_TO_SCAN_INTERVAL(100), 
     .window   = BT_GAP_MS_TO_SCAN_WINDOW(50),
