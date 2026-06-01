@@ -649,7 +649,7 @@ def initialize_run():
     timeStamp = [[] for _ in range(patchNum)]
     viol = [[] for _ in range(patchNum)] 
 
-    dataout_queue = {i1: queue.Queue() for i1 in range(16)}
+    dataout_queue = {i1: queue.Queue() for i1 in range(patchNum)}
     input_queues["DATAOUT_DONE"] = queue.Queue() 
     input_queues["SRAMOUT"] = queue.Queue() 
     input_queues["COUNTSTART"] = queue.Queue()
@@ -666,7 +666,7 @@ def initialize_run():
     elapsed_time_main = 0
     #text_area.insert(tk.INSERT, 'Main Program Running... \n')
     start_time_main = time.time()
-    for j in range(16): cnt[j] = 0
+    for j in range(patchNum): cnt[j] = 0
     # here need to start the patch: rtc timer
     if not ser:
         print("Start Fail: Device not connected")
