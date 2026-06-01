@@ -56,10 +56,13 @@ void start_counts(void) {
     }
 }
 
-void stop_counts(void) {
-    for (int i = 0; i< patch_num; i++) {
-        write_sys_cmd(8, i);
+void stop_counts(char *buf) {
+    int i = atoi(buf + 5); 
+    if (i >= 0 && i < patch_num) {
+        write_sys_cmd(8, i); 
         k_msleep(10); 
+    } else { 
+        LOG_INF("invalid patch number"); 
     }
 }
 
@@ -104,7 +107,7 @@ void process_command(char *buf, const struct device *dev) {
                         break;
                 case 'S': 
                         if (strncmp(buf, "SIPO:", 5) == 0) handle_sipo(buf); // make sure to call reset_sipo() and reset_sramout() first 
-                        else if (strncmp(buf, "STOPG:", 6) == 0) stop_counts(); 
+                        else if (strncmp(buf, "STOPG", 5) == 0) stop_counts(buf); 
                         else if (strncmp(buf, "STARTG:", 7) == 0) start_counts();
                         // else if (strcmp(buf, "SIPO_RST") == 0) reset_sipo(); 
                         //else if (strcmp(buf, "SRAM_RD_RST") == 0) reset_sramout(); 

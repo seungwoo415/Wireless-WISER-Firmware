@@ -65,16 +65,15 @@ boardAddressQuery = 0
 patchNum = 1
 
 # [Archie] 
-num_patch = 16
-addr_miss = [[] for _ in range(num_patch)] 
-avgCnt = [0 for _ in range(num_patch)]
-avgPW = [0 for _ in range(num_patch)]
-cnt = [0 for _ in range(num_patch)]
-col = [[] for _ in range(num_patch)]
-pw = [[] for _ in range(num_patch)]
-row = [[] for _ in range(num_patch)]
-timeStamp = [[] for _ in range(num_patch)]
-viol = [[] for _ in range(num_patch)]
+addr_miss = [[] for _ in range(patchNum)] 
+avgCnt = [0 for _ in range(patchNum)]
+avgPW = [0 for _ in range(patchNum)]
+cnt = [0 for _ in range(patchNum)]
+col = [[] for _ in range(patchNum)]
+pw = [[] for _ in range(patchNum)]
+row = [[] for _ in range(patchNum)]
+timeStamp = [[] for _ in range(patchNum)]
+viol = [[] for _ in range(patchNum)]
 
 ser = None 
 patch_read_done = False
@@ -613,7 +612,7 @@ def startMain():
         #elif i == 0: # I can probably reset everything here 
             #for j in range(16): cnt[j] = 0
             #stopMainSaveFile()
-        boardAddress = (boardAddress + 1) % num_patch
+        boardAddress = (boardAddress + 1) % patchNum
         elapsed_time_main = time.time() - start_time_main
         i = i + 1
         print (time.time() - start_time_main) 
@@ -642,13 +641,13 @@ def initialize_run():
     global addr_miss, cnt, col, pw, row, timeStamp, viol
     global boardAddress, elapsed_time_main, i, running, start_time_main, dlrows, dlval, last_int, rowval_sweep, start_time_sram
     global dataout_queue, input_queues
-    addr_miss = [[] for _ in range(num_patch)] 
-    cnt = [0 for _ in range(num_patch)]
-    col = [[] for _ in range(num_patch)]
-    pw = [[] for _ in range(num_patch)]
-    row = [[] for _ in range(num_patch)]
-    timeStamp = [[] for _ in range(num_patch)]
-    viol = [[] for _ in range(num_patch)] 
+    addr_miss = [[] for _ in range(patchNum)] 
+    cnt = [0 for _ in range(patchNum)]
+    col = [[] for _ in range(patchNum)]
+    pw = [[] for _ in range(patchNum)]
+    row = [[] for _ in range(patchNum)]
+    timeStamp = [[] for _ in range(patchNum)]
+    viol = [[] for _ in range(patchNum)] 
 
     dataout_queue = {i1: queue.Queue() for i1 in range(16)}
     input_queues["DATAOUT_DONE"] = queue.Queue() 
@@ -772,7 +771,7 @@ def retrieve_data(boardAddress):
         row[boardAddress].append(bitIdxLong(dataout, 12, 6))
         col[boardAddress].append(bitIdxLong(dataout, 5, 0))
         cnt[boardAddress] += 1
-        stopMainSaveFile()
+        #stopMainSaveFile()
         return False
     # elif i == 0: # I can probably reset everything here 
     #     for j in range(16): cnt[j] = 0
@@ -800,35 +799,49 @@ def stopMain():
     global running
     running = False 
     patch_read_done = False
-    cmd = f"STOPG:\n"
-    ser.write(cmd.encode('ascii'))
 
     text_area.insert(tk.INSERT, '...Main Program Stopped and Retrieving Data\n') 
-    drain_and_save()
+
+    process_next_patch(0) 
 
     # boardAddress = (boardAddress + 1) % num_patch
     #stopMainSaveFile()
-    return
+    return 
 
-def drain_and_save():
-    # Attempt to retrieve remaining data
-    finished = retrieve_data(0) 
+def process_next_patch(i): 
+    if i >= patchNum:
+        stopMainSaveFile() 
+        text_area.insert(tk.INSERT, 'All Patches Processed Successfully.\n')
+        return
+
+    # Send the stop command for THIS patch only
+    cmd = f"STOPG{i}\n"
+    ser.write(cmd.encode('ascii')) 
+    text_area.insert(tk.INSERT, f'...Retrieving Data from Patch{i}...\n')
+
+    # Start draining this specific patch
+    drain_and_save(i)
+
+def drain_and_save(i):
+    # Attempt to retrieve remaining data 
+    finished = retrieve_data(i) 
     
     if not finished:
         # If there's still data in the queue, check again in 10ms
         # This keeps the GUI responsive while data is being saved!
-        window.after(10, drain_and_save)
+        window.after(10, drain_and_save, i)
     else:
-        # Everything is retrieved, now save the file
-        stopMainSaveFile()
-        text_area.insert(tk.INSERT, '...Data Saved Successfully.\n')
+        text_area.insert(tk.INSERT, f'...Patch{i} Data Saved Successfully.\n')
+        
+        # THIS IS THE MAGIC: Move to the next patch in the sequence
+        process_next_patch(i + 1)
 
 # [Archie]  
 def stopMainSaveFile(): 
     data_dic = {} 
     
     # check if this is correct 
-    for i in range(num_patch): 
+    for i in range(patchNum): 
         suffix = "" if i == 0 else str(i) 
         data_dic[f'time{suffix}']      = timeStamp[i]
         data_dic[f'addr_miss{suffix}'] = addr_miss[i]
