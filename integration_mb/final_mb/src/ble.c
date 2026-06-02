@@ -371,7 +371,7 @@ static uint8_t count_status_read_response(struct bt_conn *conn, uint8_t err,
             // I need to process dataout --> need to change for more than one patch
             char tx_buf[64];
             int len = snprintf(tx_buf, sizeof(tx_buf), "COUNTSTATUS:%d,%u,%u,%u,%u\n", // need to change this in GUI
-                            0, counts, curr_time, current_dataout, current_ts);
+                            board_address, counts, curr_time, current_dataout, current_ts);
 
             int sent = 0;
             while (sent < len) {

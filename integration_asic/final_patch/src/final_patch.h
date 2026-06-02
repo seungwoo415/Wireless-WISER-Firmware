@@ -42,17 +42,17 @@ extern "C" {
 #endif
 
 // pin configurations 
-#define SRAMOUT_CLK_IN 31 // 31
-#define SRAMOUT_DATA_IN 30 // 30 
+#define SRAMOUT_CLK_IN NRF_GPIO_PIN_MAP(1, 15) // 31
+#define SRAMOUT_DATA_IN 29 // 30 
 #define DATAOUT_CLK_IN NRF_GPIO_PIN_MAP(1, 11) // 1.11
 #define DATAOUT_DATA_IN NRF_GPIO_PIN_MAP(1, 13) // 1.13 
-#define AL_DATA_IN NRF_GPIO_PIN_MAP(1, 12) // 1.12
-#define DL_DATA_IN NRF_GPIO_PIN_MAP(1, 14) // 1.14
+#define AL_DATA_IN 31 // 1.12
+#define DL_DATA_IN 30 // 1.14
 
 #define DAC_SDA_PIN 12
 #define DAC_SCL_PIN 11
-#define SIPO_CLK_OUT NRF_GPIO_PIN_MAP(1, 15) // 1.15
-#define SIPO_DATA_OUT 29 // 29
+#define SIPO_CLK_OUT NRF_GPIO_PIN_MAP(1, 12) // 1.15
+#define SIPO_DATA_OUT NRF_GPIO_PIN_MAP(1, 14) // 29
 #define CLK_1MHZ_OUT 28 // 28
 #define CLK_BASE_OUT 2 // 2
 #define CH_RST NRF_GPIO_PIN_MAP(1, 10) // 1.10
